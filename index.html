@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HEP Shell Lab</title>
+<style>
+  /* Colours are variables, so dark mode only needs to change these. */
+  :root {
+    --bg: #f6f7fb; --card: #ffffff; --text: #1c2333; --muted: #5b6478;
+    --accent: #2563eb; --border: #dfe3ee; --good: #15803d; --bad: #b91c1c;
+    --c1: #2563eb; --c2: #0f766e; --c3: #b45309; --c4: #7c3aed;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1420; --card: #181f31; --text: #e7eaf3; --muted: #9aa3b8;
+      --accent: #6ea0ff; --border: #2b3550; --good: #4ade80; --bad: #f87171;
+      --c1: #6ea0ff; --c2: #2dd4bf; --c3: #fbbf24; --c4: #a78bfa;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg);
+         color: var(--text); line-height: 1.55; }
+  header { padding: 40px 16px 24px; text-align: center; }
+  h1 { margin: 0 0 8px; font-size: 2rem; }
+  header p { margin: 0 auto; max-width: 640px; color: var(--muted); }
+  nav { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 0 16px 8px; }
+  nav a { padding: 6px 14px; border: 1px solid var(--border); border-radius: 999px;
+          color: var(--text); text-decoration: none; background: var(--card); font-size: .9rem; }
+  nav a:hover { border-color: var(--accent); }
+  main { max-width: 960px; margin: 0 auto; padding: 0 16px 60px; }
+  section { margin-top: 36px; }
+  h2 { font-size: 1.4rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .lesson { display: block; text-decoration: none; color: inherit; }
+  .lesson:hover { border-color: var(--accent); }
+  .lesson b { color: var(--accent); }
+  .lesson span { display: block; color: var(--muted); font-size: .9rem; margin-top: 4px; }
+  /* chart */
+  .bars { display: grid; gap: 8px; }
+  .bar { display: grid; grid-template-columns: 90px 1fr 60px; gap: 10px; align-items: center;
+         cursor: pointer; background: none; border: 0; color: inherit; font: inherit; text-align: left; padding: 2px; }
+  .bar .track { background: var(--border); border-radius: 6px; height: 22px; overflow: hidden; }
+  .bar .fill { height: 100%; background: var(--c1); border-radius: 6px; transition: width .6s; width: 0; }
+  .bar:hover .fill, .bar.sel .fill { background: var(--c3); }
+  .bar .pct { text-align: right; font-variant-numeric: tabular-nums; }
+  #chart-info { margin-top: 14px; min-height: 3em; color: var(--muted); }
+  /* detector */
+  #detector { width: 100%; height: auto; max-width: 640px; display: block; margin: 0 auto; }
+  #detector .layer { cursor: pointer; stroke: var(--bg); stroke-width: 2; transition: opacity .2s; }
+  #detector .layer:hover, #detector .layer.sel { opacity: .75; }
+  #detector text { fill: var(--text); font-size: 13px; }
+  #layer-info { margin-top: 12px; }
+  /* quiz */
+  .q { margin-bottom: 18px; }
+  .q p { margin: 0 0 6px; font-weight: 600; }
+  .q label { display: block; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px;
+             margin: 4px 0; cursor: pointer; }
+  .q label.right { border-color: var(--good); }
+  .q label.wrong { border-color: var(--bad); }
+  .q .why { font-size: .9rem; color: var(--muted); margin-top: 4px; display: none; }
+  button.main { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 10px 20px;
+                font: inherit; cursor: pointer; }
+  button.main:hover { opacity: .9; }
+  #score { margin-left: 12px; font-weight: 600; }
+  footer { text-align: center; color: var(--muted); font-size: .85rem; padding: 20px; }
+  code { background: var(--border); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>HEP Shell Lab</h1>
+  <p>Learn the Linux shell with High Energy Physics examples: from "what is an operating
+     system?" to the Higgs boson. Based on lecture 1 of the HEP data-analysis course.</p>
+</header>
+<nav>
+  <a href="#lessons">Lessons</a><a href="#higgs">Higgs chart</a>
+  <a href="#atlas">ATLAS detector</a><a href="#quiz">Quiz</a>
+</nav>
+
+<main>
+<section id="lessons">
+  <h2>Lessons</h2>
+  <p class="sub">Follow them in order. Each has examples, an exercise and a hidden solution.</p>
+  <div class="grid" id="lesson-grid"></div>
+</section>
+
+<section id="higgs">
+  <h2>How does the Higgs boson decay?</h2>
+  <p class="sub">Branching ratios from the lecture (loaded from <code>data/higgs_decays.csv</code>).
+     Click a bar for details.</p>
+  <div class="card">
+    <div class="bars" id="bars" role="list"></div>
+    <div id="chart-info">Click a bar.</div>
+  </div>
+</section>
+
+<section id="atlas">
+  <h2>The ATLAS detector</h2>
+  <p class="sub">A particle flies from the collision point (centre) outwards through the layers.
+     Click a layer. (Simplified drawing, not to scale. ATLAS is 44 m long, 22 m wide, ~7000 t.)</p>
+  <div class="card">
+    <svg id="detector" viewBox="0 0 640 400" role="img"
+         aria-label="Diagram of ATLAS layers: inner detector, electromagnetic calorimeter, hadronic calorimeter, muon chambers">
+      <!-- Drawn from the biggest circle to the smallest, so smaller ones sit on top. -->
+      <circle class="layer" data-k="muon" cx="320" cy="200" r="190" fill="#3b82f6"/>
+      <circle class="layer" data-k="had"  cx="320" cy="200" r="140" fill="#ef4444"/>
+      <circle class="layer" data-k="em"   cx="320" cy="200" r="100" fill="#22c55e"/>
+      <circle class="layer" data-k="id"   cx="320" cy="200" r="60"  fill="#f59e0b"/>
+      <circle cx="320" cy="200" r="6" fill="#111"/>
+      <!-- flight path of a muon through everything -->
+      <path d="M320 200 L560 80" stroke="#fff" stroke-width="2.5" stroke-dasharray="6 4" fill="none"/>
+      <text x="560" y="72" text-anchor="middle" style="fill:#fff" font-weight="bold" font-size="12">muon</text>
+      <!-- labels -->
+      <text x="320" y="196" text-anchor="middle" font-size="11" dy="-10">collision</text>
+      <text x="320" y="170" text-anchor="middle" style="fill:#000" font-size="12">Inner</text>
+      <text x="320" y="125" text-anchor="middle" style="fill:#000" font-size="12">EM calo</text>
+      <text x="320" y="80"  text-anchor="middle" style="fill:#fff" font-size="12">Hadronic calo</text>
+      <text x="320" y="38"  text-anchor="middle" style="fill:#fff" font-size="12">Muon chambers</text>
+    </svg>
+    <div id="layer-info" class="card">Click a layer to read about it.</div>
+  </div>
+</section>
+
+<section id="quiz">
+  <h2>Quiz</h2>
+  <p class="sub">10 questions based on the lecture.</p>
+  <div class="card">
+    <form id="quiz-form"></form>
+    <button class="main" id="check" type="button">Check answers</button><span id="score"></span>
+  </div>
+</section>
+</main>
+
+<footer>Simulated particle data in <code>data/</code> is for practice only. Open this page in any browser – no server needed.</footer>
+
+<script>
+// ---------- Lessons ----------
+const LESSONS = [
+  ["01-what-is-an-os", "What is an OS?", "Kernel, Unix, Linux, Ubuntu, shell."],
+  ["02-shell-basics", "Shell basics", "pwd, ls, cd, man, history."],
+  ["03-files-and-folders", "Files and folders", "mkdir, touch, nano, cp, mv, rm, wildcards."],
+  ["04-pipes-and-redirection", "Pipes and redirection", "|, >, >>, head, tail, sort, wc, grep."],
+  ["05-loops", "Loops", "for ... do ... done over files and lists."],
+  ["06-scripts-and-arguments", "Scripts and arguments", "$1, $2, $@, $#, ./ vs source."],
+  ["07-atlas-and-higgs", "ATLAS and the Higgs", "The detector, production and decays."]
+];
+const grid = document.getElementById("lesson-grid");
+LESSONS.forEach(([file, title, text], i) => {
+  const a = document.createElement("a");
+  a.className = "card lesson";
+  a.href = "lessons/" + file + ".md";
+  a.innerHTML = "<b>" + (i + 1) + ". " + title + "</b><span>" + text + "</span>";
+  grid.appendChild(a);
+});
+
+// ---------- Higgs chart ----------
+// Backup copy of data/higgs_decays.csv, used if the browser blocks reading the file
+// (browsers often block fetch() when a page is opened directly from disk).
+const FALLBACK_CSV = `decay,particles,branching_ratio_percent
+bb,bottom quarks,58.4
+WW,W bosons,21.4
+gg,gluons,8.2
+tautau,tau leptons,6.3
+cc,charm quarks,2.9
+ZZ,Z bosons,2.6
+gammagamma,photons,0.2`;
+const LABELS = { tautau: "ττ", gammagamma: "γγ" };
+
+function parseCsv(text) {
+  return text.trim().split("\n").slice(1).map(line => {
+    const [decay, particles, pct] = line.split(",");
+    return { decay, particles, pct: parseFloat(pct) };
+  });
+}
+function drawChart(rows) {
+  const bars = document.getElementById("bars"), info = document.getElementById("chart-info");
+  const max = Math.max(...rows.map(r => r.pct));
+  bars.innerHTML = "";
+  rows.forEach(r => {
+    const label = "H → " + (LABELS[r.decay] || r.decay);
+    const b = document.createElement("button");
+    b.className = "bar"; b.setAttribute("role", "listitem");
+    b.innerHTML = "<span>" + (LABELS[r.decay] || r.decay) + "</span>" +
+      '<span class="track"><span class="fill" style="display:block"></span></span>' +
+      '<span class="pct">' + r.pct + " %</span>";
+    b.onclick = () => {
+      bars.querySelectorAll(".bar").forEach(x => x.classList.remove("sel"));
+      b.classList.add("sel");
+      info.textContent = label + ": the Higgs decays into " + r.particles + " in " + r.pct +
+        " % of cases (about " + Math.round(r.pct * 10) + " out of every 1000 Higgs bosons).";
+    };
+    bars.appendChild(b);
+    // grow the bar after the page paints, so the animation is visible
+    requestAnimationFrame(() => { b.querySelector(".fill").style.width = (r.pct / max * 100) + "%"; });
+  });
+}
+fetch("data/higgs_decays.csv").then(r => { if (!r.ok) throw 0; return r.text(); })
+  .then(t => drawChart(parseCsv(t)))
+  .catch(() => drawChart(parseCsv(FALLBACK_CSV)));
+
+// ---------- ATLAS diagram ----------
+const LAYERS = {
+  id:   ["Inner Detector", "Closest to the collision. It records the tracks of charged particles. A magnetic field (the solenoid) bends the tracks, so we can measure momentum and charge. Neutral particles (photons) leave no track."],
+  em:   ["Electromagnetic calorimeter", "Stops electrons and photons and measures their energy."],
+  had:  ["Hadronic calorimeter", "Stops hadrons (such as pions and protons) and measures their energy. Calorimeters measure energy by absorbing the particle."],
+  muon: ["Muon chambers", "The outermost layer. Muons go through all the other layers, so a track here means a muon. The toroid magnets bend their path."]
+};
+document.querySelectorAll("#detector .layer").forEach(el => {
+  el.onclick = () => {
+    document.querySelectorAll("#detector .layer").forEach(x => x.classList.remove("sel"));
+    el.classList.add("sel");
+    const [name, text] = LAYERS[el.dataset.k];
+    document.getElementById("layer-info").innerHTML = "<b></b><br>";
+    document.querySelector("#layer-info b").textContent = name;
+    document.getElementById("layer-info").append(text);
+  };
+});
+
+// ---------- Quiz ----------
+// Each question: [text, [options], index of right answer, explanation]
+const QUIZ = [
+  ["What is an operating system (OS)?",
+   ["System software that manages the hardware and gives services to programs", "A text editor", "A kind of keyboard", "A programming language"], 0,
+   "It manages hardware and software resources (Windows, macOS, Linux...)."],
+  ["Which part of the OS controls memory, the CPU and the hardware at the most basic level?",
+   ["The shell", "The kernel", "The GUI", "The compiler"], 1,
+   "The kernel is the core of the OS."],
+  ["The shell is an interpreter. What does that mean?",
+   ["It translates the whole program before running", "It translates and runs the commands line by line", "It only works with C++", "It draws windows"], 1,
+   "A compiler translates everything first; an interpreter works during execution, line by line."],
+  ["Which layer of ATLAS is the outermost?",
+   ["Inner Detector", "Electromagnetic calorimeter", "Hadronic calorimeter", "Muon chambers"], 3,
+   "Muons pass through all the other layers, so the muon chambers are outside."],
+  ["What is the difference between cd .. and cd - ?",
+   ["No difference", "cd .. goes up one folder; cd - goes back to the previous folder", "cd .. goes back; cd - goes up", "cd - deletes the folder"], 1,
+   "The former brings you up, the latter brings you back."],
+  ["What is the difference between > and >> ?",
+   ["> adds to a file, >> replaces it", "> replaces the file, >> adds to its end", "They are the same", "> reads a file"], 1,
+   "'>' creates or replaces; '>>' appends."],
+  ["What does the pipe | do?",
+   ["Saves output in a file", "Sends the output of the left command to the input of the right command", "Deletes a file", "Starts a loop"], 1,
+   "Example: grep muon events.csv | wc -l"],
+  ["You want a script to change variables in your CURRENT shell. How do you run it?",
+   ["./script.sh", "bash script.sh", "source script.sh", "chmod script.sh"], 2,
+   "source (or the dot command) runs the script in the current shell; ./ runs a new process."],
+  ["Which Higgs production mode is the most common at the LHC?",
+   ["VBF (7 %)", "ggF (88 %)", "VH (4 %)", "ttH (1 %)"], 1,
+   "Gluon-gluon fusion, 88 %."],
+  ["Which is the most likely Higgs decay?",
+   ["H → bb (58.4 %)", "H → WW (21.4 %)", "H → γγ (0.2 %)", "H → ZZ (2.6 %)"], 0,
+   "bb is 58.4 %. H → γγ is rare, but easy to measure."]
+];
+const form = document.getElementById("quiz-form");
+QUIZ.forEach((q, i) => {
+  const div = document.createElement("div");
+  div.className = "q";
+  const p = document.createElement("p");
+  p.textContent = (i + 1) + ". " + q[0];
+  div.appendChild(p);
+  q[1].forEach((opt, j) => {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "radio"; input.name = "q" + i; input.value = j;
+    label.append(input, " " + opt);
+    div.appendChild(label);
+  });
+  const why = document.createElement("div");
+  why.className = "why"; why.textContent = "✔ " + q[3];
+  div.appendChild(why);
+  form.appendChild(div);
+});
+document.getElementById("check").onclick = () => {
+  let score = 0;
+  QUIZ.forEach((q, i) => {
+    const labels = form.querySelectorAll('input[name="q' + i + '"]');
+    labels.forEach((inp, j) => {
+      const l = inp.parentElement;
+      l.classList.remove("right", "wrong");
+      if (j === q[2]) l.classList.add("right");
+      else if (inp.checked) l.classList.add("wrong");
+    });
+    const chosen = form.querySelector('input[name="q' + i + '"]:checked');
+    if (chosen && +chosen.value === q[2]) score++;
+    form.querySelectorAll(".why")[i].style.display = "block";
+  });
+  document.getElementById("score").textContent = "Score: " + score + " / " + QUIZ.length;
+};
+</script>
+</body>
+</html>
